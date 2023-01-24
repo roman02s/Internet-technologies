@@ -44,9 +44,10 @@ app.get('/tasklists', (request, response) => {
 // Создание нового списка задач
 app.post('/tasklists', async (request, response) => {
   console.log(request);
-  const { tasklistName } = request.body;
+  const { tasklistName, tasklistCount } = request.body;
   tasklists.push({
     tasklistName,
+    tasklistCount,
     tasks: []
   });
   await writeData(tasklists);
@@ -55,13 +56,13 @@ app.post('/tasklists', async (request, response) => {
     .setHeader('Content-Type', 'application/json')
     .status(200)
     .json({
-      info: `Tasklist '${tasklistName}' was successfully created`
+      info: `Tasklist '${tasklistName, tasklistCount}' was successfully created`
     });
 });
 
 // Создание новой задачи
 app.post('/tasklists/:tasklistId/tasks', async (request, response) => {
-  const { taskName } = request.body;
+  const { taskName, tasklistCount } = request.body;
   const tasklistId = Number(request.params.tasklistId);
 
   if (tasklistId < 0 || tasklistId >= tasklists.length) {
@@ -73,14 +74,14 @@ app.post('/tasklists/:tasklistId/tasks', async (request, response) => {
       });
     return;
   }
-
-  tasklists[tasklistId].tasks.push(taskName);
+  console.log(taskName, tasklistCount);
+  tasklists[tasklistId].tasks.push(taskName, tasklistCount);
   await writeData(tasklists);
   response
     .setHeader('Content-Type', 'application/json')
     .status(200)
     .json({
-      info: `Task '${taskName}' was successfully added in tasklist '${tasklists[tasklistId].tasklistName}'`
+      info: `Task '${taskName, tasklistCount}' was successfully added in tasklist '${tasklists[tasklistId].tasklistName}'`
     });
 });
 
@@ -143,11 +144,12 @@ app.delete('/tasklists/:tasklistId/tasks/:taskId', async (request, response) => 
 // Перенос задачи с одного спика в другой
 app.patch('/tasklists/:tasklistId', async (request, response) => {
   const fromTasklistId = Number(request.params.tasklistId);
-  const { toTasklistId, taskId } = request.body;
-
+  const { toTasklistId, taskId, tasklistCount } = request.body;
+  console.log(tasklistCount, tasklists[toTasklistId].tasks.length);
   if (fromTasklistId < 0 || fromTasklistId >= tasklists.length
     || taskId < 0 || taskId >= tasklists[fromTasklistId].tasks.length
-    || toTasklistId < 0 || toTasklistId >= tasklists.length) {
+    || toTasklistId < 0 || toTasklistId >= tasklists.length
+    || 4 <= tasklists[toTasklistId].tasks.length) {
     response
       .setHeader('Content-Type', 'application/json')
       .status(404)

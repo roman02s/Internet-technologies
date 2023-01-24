@@ -9,8 +9,8 @@ class AppModel {
     return await tasklistsRes.json();
   }
 
-  static async addTasklist(tasklistName) {
-    console.log(JSON.stringify({ tasklistName }));
+  static async addTasklist(tasklistName, tasklistCount) {
+    console.log(JSON.stringify({ tasklistName, tasklistCount }));
     const result = await fetch(
       'http://localhost:4321/tasklists',
       {
@@ -18,7 +18,7 @@ class AppModel {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ tasklistName })
+        body: JSON.stringify({ tasklistName, tasklistCount })
       }
     );
 
@@ -31,7 +31,7 @@ class AppModel {
 
   static async addTask({
     tasklistId,
-    taskName
+    taskName,
   }) {
     const result = await fetch(
       `http://localhost:4321/tasklists/${tasklistId}/tasks`,
@@ -95,7 +95,8 @@ class AppModel {
   static async moveTask({
     fromTasklistId,
     toTasklistId,
-    taskId
+    taskId,
+    tasklistCount
   }) {
     const result = await fetch(
       `http://localhost:4321/tasklists/${fromTasklistId}`,
@@ -104,7 +105,7 @@ class AppModel {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ toTasklistId, taskId })
+        body: JSON.stringify({ toTasklistId, taskId, tasklistCount })
       }
     );
 
@@ -119,6 +120,7 @@ class AppModel {
 class App {
   constructor() {
     this.tasklists = [];
+    this.tasklistscount = {};
   }
 
   onEscapeKeydown = ({ key }) => {
@@ -127,29 +129,14 @@ class App {
       input.style.display = 'none';
       input.value = '';
 
-      document.getElementById('tm-tasklist-add-tasklist')
-        .style.display = 'inherit';
-    }
-  };
+      const input1 = document.getElementById('add-tasklist-input-count');
+      input1.style.display = 'none';
+      input1.value = '';
 
-  onInputKeydown = async ({ key, target }) => {
-    if (key === 'Enter') {
-      if (target.value) {
-        await AppModel.addTasklist(target.value);
-
-        this.tasklists.push(
-          new Tasklist({
-            tlName: target.value,
-            tlID: `TL${this.tasklists.length}`,
-            moveTask: this.moveTask
-          })
-        );
-
-        this.tasklists[this.tasklists.length - 1].render();
-      }
+      const button1 = document.getElementById('add-tasklist-button');
+      button1.style.display = 'none';
+      button1.value = '';
       
-      target.style.display = 'none';
-      target.value = '';
 
       document.getElementById('tm-tasklist-add-tasklist')
         .style.display = 'inherit';
@@ -164,6 +151,7 @@ class App {
     tlIndex = Number(tlIndex.split('TL')[1]);
     taskIndex = Number(taskIndex);
     const taskName = this.tasklists[tlIndex].tasks[taskIndex];
+    const taskNameCount = this.tasklistscount[tlIndex];
     const targetTlIndex = direction === 'left'
       ? tlIndex - 1
       : tlIndex + 1;
@@ -172,7 +160,8 @@ class App {
       await AppModel.moveTask({
         fromTasklistId: tlIndex,
         toTasklistId: targetTlIndex,
-        taskId: taskIndex
+        taskId: taskIndex,
+        tasklistCount: taskNameCount
       });
 
       this.tasklists[tlIndex].deleteTask(taskIndex);
@@ -206,13 +195,63 @@ class App {
           const input = document.getElementById('add-tasklist-input');
           input.style.display = 'inherit';
           input.focus();
+
+          const input1 = document.getElementById('add-tasklist-input-count');
+          input1.style.display = 'inherit';
+
+          const button1 = document.getElementById('add-tasklist-button');
+          button1.style.display = 'inherit';
+          
         }
       );
+    
+    document.getElementById('add-tasklist-button')
+    .addEventListener(
+      'click',
+      async (event, target) => {
+      console.log(event);
+
+      const input1 = document.getElementById('add-tasklist-input');
+      const input2 = document.getElementById('add-tasklist-input-count');
+      console.log(input1.value, input2.value);
+      await AppModel.addTasklist(input1.value, input2.value);
+
+      this.tasklists.push(
+        new Tasklist({
+          tlName: input1.value,
+          tlID: `TL${this.tasklists.length}`,
+          moveTask: this.moveTask,
+          tlMaxCount: input2.value,
+        })
+      );
+      this.tasklistscount[input1.value] = input2.value;
+        
+      this.tasklists[this.tasklists.length - 1].render();
+      
+      // 'tm-tasklist'
+      // 'add-tasklist-input'
+      input1.style.display = 'none';
+      input1.value = '';
+      input2.style.display = 'none';
+      input2.value = '';
+
+      const button1 = document.getElementById('add-tasklist-button');
+      button1.style.display = 'none';
+      button1.value = '';
+      
+
+      document.getElementById('tm-tasklist-add-tasklist')
+        .style.display = 'inherit';
+      }
+    );
 
     document.addEventListener('keydown', this.onEscapeKeydown);
 
     document.getElementById('add-tasklist-input')
       .addEventListener('keydown', this.onInputKeydown);
+
+    document.getElementById('add-tasklist-input-count')
+    .addEventListener('keydown', this.onInputKeydown);
 
     document.querySelector('.toggle-switch input')
       .addEventListener(
@@ -230,37 +269,42 @@ class Tasklist {
   constructor({
     tlName,
     tlID,
-    moveTask
+    moveTask,
+    tlMaxCount = 4,
   }) {
     this.tlName = tlName;
     this.tlID = tlID;
+    this.tlMaxCount = tlMaxCount;
     this.tasks = [];
     this.moveTask = moveTask;
   }
 
   onAddTaskButtonClick = async () => {
-    const newTaskName = prompt('Введите описание задачи:');
+    console.log(this.tasks.length, this.tlMaxCount);
+    if (this.tasks.length < this.tlMaxCount) {
+      const newTaskName = prompt('Добавить участника: ');
 
-    if (!newTaskName) return;
+      if (!newTaskName) return;
 
-    const tasklistId = Number(this.tlID.split('TL')[1]);
-    try {
-      await AppModel.addTask({
-        tasklistId,
-        taskName: newTaskName
-      });
-      this.addTask(newTaskName);
-    } catch (error) {
-      console.error('ERROR', error);
+      const tasklistId = Number(this.tlID.split('TL')[1]);
+      try {
+        await AppModel.addTask({
+          tasklistId,
+          taskName: newTaskName,
+        });
+        this.addTask(newTaskName);
+      } catch (error) {
+        console.error('ERROR', error);
+      }
     }
   };
 
-  addTask = (taskName) => {
+  addTask = (taskName, tlMaxCount) => {
     document.querySelector(`#${this.tlID} ul`)
       .appendChild(
         this.renderTask({
           taskID: `${this.tlID}-T${this.tasks.length}`,
-          taskName
+          taskName, tlMaxCount
         })
       );
 
@@ -419,7 +463,7 @@ class Tasklist {
     const button = document.createElement('button');
     button.type = 'button';
     button.classList.add('tm-tasklist-add-task');
-    button.innerHTML = 'Добавить карточку';
+    button.innerHTML = 'Добавить члена проекта';
     button.addEventListener('click', this.onAddTaskButtonClick);
     footer.appendChild(button);
     tasklist.appendChild(footer);
